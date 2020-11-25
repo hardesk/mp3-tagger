@@ -119,8 +119,6 @@ def main():
     ctx=Config.Context(args)
     for name in args.names:
 
-        print("{}".format(name))
-
         if not os.path.isfile(name):
             print("  File {} not found. Skipping".format(name))
             continue
@@ -129,25 +127,27 @@ def main():
 
         if args.list_tags:
             if f.tag:
-                print("Available tags, ID3 v1:{} v2:{}".format(f.tag.isV1(), f.tag.isV2()))
+                print("{} | Available tags, ID3 v1:{} v2:{}".format(name, f.tag.isV1(), f.tag.isV2()))
                 tag_props={ x:getattr(f.tag, x) for x in dir(f.tag) if x[0]!='_' if not any(c.isupper() for c in x) }
                 for k,v in tag_props.items():
                     if isinstance(v, str) or isinstance(v, tuple) or isinstance(v, int) or isinstance(v, float):
-                        print("{}: {}".format(k, v))
+                        print("  {}: {}".format(k, v))
             else:
                 print("No available ID3 tags found in {}".format(f.path))
         else:
+            print("Processing {}".format(name))
+
             if f.tag==None:
                 f.initTag()
             ctx.apply(f, config)
 
-        if not args.dryrun:
-            f.tag.save(version=eyed3.id3.tag.ID3_V2_4)
+            if not args.dryrun:
+                f.tag.save(version=eyed3.id3.tag.ID3_V2_4)
 
-            if f.tag.isV1() and not args.keep_v1:
-                print("  Removing ID3v1")
-                if not eyed3.id3.tag.Tag.remove(name, version=eyed3.id3.tag.ID3_V1, preserve_file_time=True):
-                   print("  Failed to remove ID3v1 from {}".format(name))
+                if f.tag.isV1() and not args.keep_v1:
+                    print("  Removing ID3v1")
+                    if not eyed3.id3.tag.Tag.remove(name, version=eyed3.id3.tag.ID3_V1, preserve_file_time=True):
+                       print("  Failed to remove ID3v1 from {}".format(name))
 
 
 if __name__ == "__main__":
