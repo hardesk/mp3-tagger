@@ -9,10 +9,32 @@ import json
 import argparse
 import doctest
 import base64
+from eyed3.core import Date as Date
 
 dbg=0
 
 class Config:
+
+    class CondKey:
+
+        def __init__(self, s):
+            #print("s={}".format(s))
+            k_re_value=s.split('|')
+            self.key=k_re_value[0]
+            if len(k_re_value)>1:
+                self.re=k_re_value[1]
+                self.value_tmpl=Config.Template(k_re_value[2] if len(k_re_value)>2 else '{file_name}')
+            else:
+                self.re=None
+                self.value_tmpl=None
+
+        def match(self, props):
+            if self.re == None or self.value_tmpl == None:
+                return True
+            v=self.value_tmpl.resolve(props)
+            if re.match(self.re, v):
+                return True
+            return False
 
     class Template:
         """ Template tests
@@ -49,7 +71,7 @@ class Config:
     class Pic:
         """ Template tests
         >>> img='data:image/png:iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII='
-        >>> p=Config.Pic(data=img, match="01.*/{file_name}")
+        >>> p=Config.Pic(data=img, match=Config.CondKey("front_cover|01.mp3|{file_name}"))
         >>> p.does_match( {'file_name':"01.mp3"} )
         True
         >>> p.does_match( {'file_name':"1.mp3"} )
@@ -63,7 +85,7 @@ class Config:
         FileNotFoundError: [Errno 2] No such file or directory: '100.jpeg'
         """
 
-        def __init__(self, data, match=None):
+        def __init__(self, data, ck=None):
             # data:mime-type:base64-encoded-data
             # filename:mime-type:file-name
             typ, self.mime, content=data.split(':')
@@ -77,19 +99,13 @@ class Config:
                 self.data=None
                 self.filename=None
 
-            self.match=match
+            self.key=ck
 
         def is_nil(self):
             return self.data==None and self.filename==None
 
         def does_match(self, props):
-            if self.match==None: return True
-
-            r, tmpl=self.match.split('/')
-            value=Config.Template(tmpl).resolve(props)
-            if self.match==None or re.match(r, str(value)):
-                return True
-            return False
+            return self.key.match(props)
 
         def resolve_image_data(self, props):
             if self.data != None:
@@ -113,8 +129,8 @@ class Config:
             tag_props={ x:getattr(mp3.tag, x) for x in dir(mp3.tag) if x[0]!='_' if not any(c.isupper() for c in x) }
 
             tag_props['inc_index']=self.inc_index
-            m=re.match('\s*(\d+)', os.path.basename(mp3.path))
-            tag_props['file_index']=int(m.group(1))
+            m=re.match(config.re_fileindex, os.path.basename(mp3.path))
+            tag_props['file_index']=int(m.group(1)) if m else self.inc_index
             tag_props['file_name']=os.path.basename(mp3.path)
             tag_props['file_path']=mp3.path
             tag_props['none']=None
@@ -128,34 +144,44 @@ class Config:
 
             for k in config.tmpl:
                 cmd=None
+                ck=Config.CondKey(k)
+                if ck.re != None and ck.value_tmpl != None and not ck.match(tag_props):
+                    #print("{} did not match {} (-> {})".format(k, ck.value_tmpl.templ, ck.value_tmpl.resolve(tag_props)))
+                    continue
+
                 templ=config.tmpl[k]
                 new_data=templ.resolve(tag_props)
-                # if we find '(' in data, means it's a tuple and so convert it to actual tuple doing eval
-                if isinstance(new_data, str) and '(' in new_data: new_data=eval(new_data)
 
-                print("  {}: {} -> {}".format(k, getattr(mp3.tag, k), new_data))
+                # some special handling
+                if "date" in ck.key:
+                    new_data=Date.parse(str(new_data))
+                else:
+                    # if we find '(' in data, means it's a tuple and so convert it to actual tuple doing eval
+                    if isinstance(new_data, str) and '(' in new_data: new_data=eval(new_data)
+
+                print("  {}: {} -> ({}){}".format(ck.key, getattr(mp3.tag, ck.key), type(new_data), new_data))
                 if not self.opts.dryrun:
-                    setattr(mp3.tag, k, new_data)
+                    setattr(mp3.tag, ck.key, new_data)
 
-            for k in config.images:
-                i=config.images[k]
-                r, tmpl=i.match.split('/')
-                value=Config.Template(tmpl).resolve(tag_props)
-                if i.does_match(tag_props):
-                    if i.is_nil():
-                        mp3.tag.images.remove(k)
-                    else:
-                        pic_type=eyed3.id3.frames.ImageFrame.stringToPicType(k.upper())
-                        imgdat=i.resolve_image_data(tag_props)
-                        print("  Setting {} picture {} bytes for {}".format(i.mime, len(imgdat), k))
-                        mp3.tag.images.set(pic_type, imgdat, i.mime, "", )
+            for i in config.images:
+                if not i.does_match(tag_props):
+                    continue
+
+                if i.is_nil():
+                    mp3.tag.images.remove(i.key.key)
+                else:
+                    pic_type=eyed3.id3.frames.ImageFrame.stringToPicType(i.key.key.upper())
+                    imgdat=i.resolve_image_data(tag_props)
+                    print("  Setting {} picture {} bytes for {}".format(i.mime, len(imgdat), i.key.key))
+                    mp3.tag.images.set(pic_type, imgdat, i.mime, "", )
 
             self.inc_index+=1
 
     # Config
     def __init__(self):
         self.tmpl={}
-        self.images={}
+        self.images=[]
+        self.re_fileindex='\s*(\d+)'
 
     def read(self, json_file):
         j = json.load(json_file)
@@ -164,13 +190,18 @@ class Config:
                 cmd=k[1:]
                 dat=j[k]
                 if cmd=='images':
-                    for pic_type in dat:
-                        i=dat[pic_type]
-                        self.images[pic_type]=Config.Pic(i['image'], i['match'])
+                    for pic_type_condition in dat:
+                        ck=Config.CondKey(pic_type_condition)
+                        img=dat[pic_type_condition]
+                        self.images.append(Config.Pic(img, ck))
+                elif cmd=="re_fileindex":
+                    self.re_fileindex=dat
             else:
                 self.tmpl[k]=Config.Template(j[k])
 
 def main():
+
+    # "prop|regex|value" prop will only be set if value matches regex
 
     rere="[\d\W]*(.*)"
     ap=argparse.ArgumentParser()
@@ -220,7 +251,10 @@ def main():
                             or (args.all and not callable(v)):
                         vv=v
                         #if isinstance(v, (eyed3.id3.tag.ImagesAccessor, eyed3.id3.tag.LyricsAccessor)):
-                        print("  {}: {}".format(k, vv))
+                        tt=type(vv)
+                        cm=re.match("[^']*'([^']*)'", str(tt))
+                        if cm: tt=cm.group(1)
+                        print("  {}: {} ({})".format(k, vv, tt))
             else:
                 print("No available ID3 tags found in {}".format(f.path))
         else:
