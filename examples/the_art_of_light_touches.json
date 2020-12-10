@@ -1,0 +1,14 @@
+{
+	"artist": "Виктор Пелевин",
+	"album_artist": "Алевтина Пугач",
+	"title": "{file_index:02d} Искусство легких касаний",
+	"album": "Искусство легких касаний",
+	"track_num": "({file_index}, 21)",
+    "recording_date": 2019,
+    "genre": "Speech",
+    "publisher": "ИНДИ",
+	"$images":
+	{
+		"front_cover|01.*|{file_name}": "filename:image/jpeg:Pelevin_V_Iskusstvo_legkih_kasaniy_Pugach_A_tn-1536x1536.jpeg"
+	}
+}
