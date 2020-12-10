@@ -12,6 +12,7 @@ import base64
 from eyed3.core import Date as Date
 
 dbg=0
+args=None
 
 class Config:
 
@@ -159,7 +160,8 @@ class Config:
                     # if we find '(' in data, means it's a tuple and so convert it to actual tuple doing eval
                     if isinstance(new_data, str) and '(' in new_data: new_data=eval(new_data)
 
-                print("  {}: {} -> ({}){}".format(ck.key, getattr(mp3.tag, ck.key), type(new_data), new_data))
+                if args.all: print("  {}: {} -> ({}){}".format(ck.key, getattr(mp3.tag, ck.key), type(new_data), new_data))
+                else: print("  {}: {} -> {}".format(ck.key, getattr(mp3.tag, ck.key), new_data))
                 if not self.opts.dryrun:
                     setattr(mp3.tag, ck.key, new_data)
 
@@ -215,7 +217,8 @@ def main():
     ap.add_argument('-a', '--all', action='store_true', help='list all tags/properties that were discovered on id3 object and are potentially accessible')
     ap.add_argument('--renumber', action='store_true', help='renumber title. By default strips number and non-alnum from the beginning.')
     ap.add_argument('--rere', metavar='REGEXP', type=str, nargs=1, default=rere, help='Regexp used to renumber title. It is used to extract title as match.group(1). Default: {}'.format(rere))
-    args =ap.parse_args()
+    global args
+    args=ap.parse_args()
 
     if args.list_image_types:
         [print('{}'.format(x)) for x in dir(eyed3.id3.frames.ImageFrame) if x[0].isupper()]
