@@ -18,6 +18,8 @@ class Config:
 
     class CondKey:
 
+        # key[|regexp[|value]]
+        # where key is property name, regexp is regexp to match against value (value is file_name by default
         def __init__(self, s):
             #print("s={}".format(s))
             k_re_value=s.split('|')
@@ -207,7 +209,7 @@ def main():
 
     rere="[\d\W]*(.*)"
     ap=argparse.ArgumentParser()
-    ap.add_argument('names', nargs='*', help='ID3 files to prcess')
+    ap.add_argument('names', nargs='*', help='ID3 files to process')
     ap.add_argument('-n', '--dryrun', action='store_true', help='do not modify files')
     ap.add_argument('-s', metavar='STRING', nargs=1, help='json config as a string')
     ap.add_argument('-c', '--config-file', nargs=1, help='json config file. pass - to read from stdin')
@@ -215,8 +217,8 @@ def main():
     ap.add_argument('-l', '--list-tags', action='store_true', help='list tags that are present')
     ap.add_argument('--list-image-types', action='store_true', help='list possible image types to set')
     ap.add_argument('-a', '--all', action='store_true', help='list all tags/properties that were discovered on id3 object and are potentially accessible')
-    ap.add_argument('--renumber', action='store_true', help='renumber title. By default strips number and non-alnum from the beginning.')
-    ap.add_argument('--rere', metavar='REGEXP', type=str, nargs=1, default=rere, help='Regexp used to renumber title. It is used to extract title as match.group(1). Default: {}'.format(rere))
+    ap.add_argument('--renumber', action='store_true', help='renumber title. by default strips number and non-alnum from the beginning of title.')
+    ap.add_argument('--rere', metavar='REGEXP', type=str, nargs=1, default=rere, help='regexp used to extract title for re-titling (it should result in match.group(1)). default: {}'.format(rere))
     global args
     args=ap.parse_args()
 
