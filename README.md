@@ -1,6 +1,5 @@
 # mp3-tagger
-A tool to fixup/change ID3 tags of an mp3 sequence. I wrote this tool to fixup ID3 tags of audiobooks I've acquired.
-
+A tool to fixup/change ID3 tags of an mp3 sequence. I wrote this tool to fixup ID3 tags of the audiobooks I've acquired.
 
 Requires eyed3, install with:
 ```$ pip3 install eyed3```
@@ -14,7 +13,7 @@ The tool reads a json config file and applies those settings to each file that w
 
 When resolving properties, Python's formatting string can be specified after a colon. So `{file_index:03d}` will print file index in three digits prepending zeroes as necessary.
 
-`$images` is a special property to modify images. Keys are names of images to set and can be discovered using `--list-image-types` option. Usually you want `front_cover`. The date can be specified either as a filename or as a base64 embedded string. The format is "filename:`<mime-type>`:`<file-name>`" or "data:`<mime-type>`:`<base64-image-data>` respectively, for example:
+`$images` is a special property to modify images. Keys are names of images to set and can be discovered using `--list-image-types` option. Usually you want `front_cover`. The data can be specified either as a filename or as a base64 embedded string. The format is "filename:`<mime-type>`:`<file-name>`" or "data:`<mime-type>`:`<base64-image-data>` respectively, for example:
 
 ```
 "$images": {
@@ -23,7 +22,7 @@ When resolving properties, Python's formatting string can be specified after a c
 }
 ```
 
-Each of the properties can have a regex filter so that the property will only be applied if the filter matches. The syntax is `<property>:<regexp>[:<value-of-property-to-match]`, for example:
+Each of the properties can have a regex filter so that the property will only be applied if the filter matches. The syntax is `<property>|<regexp>[|<value-of-property-to-match]` where the last value can be omitted in which case `file-name` will be used, for example:
 
 ```
 "title|01.*": "first track",
